@@ -1,0 +1,4 @@
+.env
+logs.tsv
+__pycache__/
+venv/

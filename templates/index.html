@@ -1,0 +1,383 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>NASA Log Intelligence System</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          colors: {
+            cyber: { dark: '#0f172a', card: '#1e293b', border: '#334155', accent: '#22d3ee', warn: '#fbbf24', danger: '#f87171' },
+          },
+        },
+      },
+    };
+  </script>
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&family=Inter:wght@400;600;700&display=swap" rel="stylesheet" />
+  <style>
+    body { font-family: 'Inter', system-ui, sans-serif; }
+    .font-mono { font-family: 'JetBrains Mono', monospace; }
+    .card { transition: box-shadow 0.2s, border-color 0.2s; }
+    .card:hover { box-shadow: 0 0 0 1px rgba(34, 211, 238, 0.2); }
+    .glow { box-shadow: 0 0 20px rgba(34, 211, 238, 0.15); }
+  </style>
+</head>
+<body class="bg-slate-900 text-slate-200 min-h-screen">
+  <div class="max-w-7xl mx-auto px-4 sm:px-6 py-8">
+    <!-- Header -->
+    <header class="mb-8 border-b border-slate-700 pb-6">
+      <h1 class="text-3xl font-bold text-white flex items-center gap-3">
+        <i class="fas fa-shield-halved text-cyan-400"></i>
+        NASA Log Intelligence System
+      </h1>
+      <p class="text-slate-400 mt-1">Cybersecurity Dashboard — Log analysis, threat detection & search</p>
+    </header>
+
+    <!-- Control Panel -->
+    <section class="mb-8">
+      <div class="bg-slate-800 border border-slate-700 rounded-xl p-6 card glow">
+        <h2 class="text-lg font-semibold text-slate-200 mb-4 flex items-center gap-2">
+          <i class="fas fa-database text-cyan-400"></i>
+          Control Panel
+        </h2>
+        <div class="flex flex-wrap items-center gap-4">
+          <button type="button" id="btnLoad" onclick="loadData()" class="px-5 py-2.5 bg-cyan-600 hover:bg-cyan-500 text-slate-900 font-semibold rounded-lg focus:ring-2 focus:ring-cyan-400 focus:ring-offset-2 focus:ring-offset-slate-800 flex items-center gap-2">
+            <i class="fas fa-cloud-arrow-down"></i>
+            Load 1M+ Logs
+          </button>
+          <div id="loadSpinner" class="hidden flex items-center gap-2 text-cyan-400">
+            <i class="fas fa-spinner fa-spin"></i>
+            <span>Loading…</span>
+          </div>
+        </div>
+        <p id="loadStatus" class="mt-3 text-sm text-slate-400 min-h-[1.25rem]"></p>
+      </div>
+    </section>
+
+    <!-- Stats Grid -->
+    <section class="mb-8">
+      <h2 class="text-lg font-semibold text-slate-200 mb-4 flex items-center gap-2">
+        <i class="fas fa-chart-pie text-cyan-400"></i>
+        Overview
+      </h2>
+      <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+        <div class="bg-slate-800 border border-slate-700 rounded-xl p-5 card">
+          <p class="text-xs font-medium text-slate-500 uppercase tracking-wider">Total Logs</p>
+          <p id="statTotal" class="text-2xl font-bold text-white mt-1 font-mono">—</p>
+        </div>
+        <div class="bg-slate-800 border border-slate-700 rounded-xl p-5 card">
+          <p class="text-xs font-medium text-slate-500 uppercase tracking-wider">Error Rate (%)</p>
+          <p id="statErrorRate" class="text-2xl font-bold text-white mt-1 font-mono">—</p>
+        </div>
+        <div class="bg-slate-800 border border-slate-700 rounded-xl p-5 card">
+          <p class="text-xs font-medium text-slate-500 uppercase tracking-wider">Unique IPs</p>
+          <p id="statUniqueIps" class="text-2xl font-bold text-white mt-1 font-mono">—</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- Main Graph -->
+    <section class="mb-8">
+      <div class="bg-slate-800 border border-slate-700 rounded-xl p-6 card">
+        <h3 class="text-base font-semibold text-slate-200 mb-4">Traffic Over Time</h3>
+        <div class="h-80">
+          <canvas id="chartTraffic"></canvas>
+        </div>
+      </div>
+    </section>
+
+    <!-- Tables: Top IPs & Top Endpoints -->
+    <section class="mb-8">
+      <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <div class="bg-slate-800 border border-slate-700 rounded-xl overflow-hidden card">
+          <h3 class="text-base font-semibold text-slate-200 p-4 border-b border-slate-700">Top 5 IPs</h3>
+          <div class="overflow-x-auto">
+            <table class="w-full text-sm">
+              <thead class="bg-slate-900/50 text-slate-400 text-left">
+                <tr>
+                  <th class="px-4 py-3 font-medium">IP</th>
+                  <th class="px-4 py-3 font-medium text-right">Count</th>
+                </tr>
+              </thead>
+              <tbody id="tableTopIps" class="divide-y divide-slate-700">
+                <tr><td colspan="2" class="px-4 py-6 text-center text-slate-500">No data</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+        <div class="bg-slate-800 border border-slate-700 rounded-xl overflow-hidden card">
+          <h3 class="text-base font-semibold text-slate-200 p-4 border-b border-slate-700">Top 5 Endpoints</h3>
+          <div class="overflow-x-auto">
+            <table class="w-full text-sm">
+              <thead class="bg-slate-900/50 text-slate-400 text-left">
+                <tr>
+                  <th class="px-4 py-3 font-medium">Endpoint</th>
+                  <th class="px-4 py-3 font-medium text-right">Count</th>
+                </tr>
+              </thead>
+              <tbody id="tableTopEndpoints" class="divide-y divide-slate-700">
+                <tr><td colspan="2" class="px-4 py-6 text-center text-slate-500">No data</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- AI Analysis -->
+    <section class="mb-8">
+      <div class="bg-slate-800 border border-slate-700 rounded-xl p-6 card">
+        <h2 class="text-lg font-semibold text-slate-200 mb-4 flex items-center gap-2">
+          <i class="fas fa-robot text-amber-400"></i>
+          AI Threat Analysis
+        </h2>
+        <button type="button" id="btnAnalyze" onclick="runAI()" class="px-5 py-2.5 bg-amber-600 hover:bg-amber-500 text-slate-900 font-semibold rounded-lg focus:ring-2 focus:ring-amber-400 focus:ring-offset-2 focus:ring-offset-slate-800 flex items-center gap-2">
+          <i class="fas fa-magnifying-glass-chart"></i>
+          Run AI Threat Analysis
+        </button>
+        <div id="analyzeSpinner" class="hidden mt-3 flex items-center gap-2 text-amber-400">
+          <i class="fas fa-spinner fa-spin"></i>
+          <span>Analyzing…</span>
+        </div>
+        <div id="analyzeResult" class="mt-4 hidden">
+          <div class="rounded-lg border-2 p-4 mb-4" id="aiAlertBox">
+            <p class="text-xs font-medium text-slate-500 uppercase tracking-wider mb-1">Risk Level</p>
+            <p id="aiRiskLevel" class="text-xl font-bold"></p>
+          </div>
+          <div class="mb-2">
+            <p class="text-xs font-medium text-slate-500 uppercase tracking-wider mb-1">Patterns Detected</p>
+            <ul id="aiPatterns" class="list-disc list-inside text-slate-300 space-y-0.5"></ul>
+          </div>
+          <div>
+            <p class="text-xs font-medium text-slate-500 uppercase tracking-wider mb-1">Summary</p>
+            <p id="aiSummary" class="text-slate-300"></p>
+          </div>
+        </div>
+        <div id="analyzeError" class="hidden mt-4 p-4 bg-red-900/30 border border-red-700 rounded-lg text-red-300 text-sm"></div>
+      </div>
+    </section>
+
+    <!-- Search -->
+    <section>
+      <div class="bg-slate-800 border border-slate-700 rounded-xl p-6 card">
+        <h2 class="text-lg font-semibold text-slate-200 mb-4 flex items-center gap-2">
+          <i class="fas fa-search text-cyan-400"></i>
+          Search Logs
+        </h2>
+        <div class="flex flex-wrap gap-3 mb-4">
+          <input type="text" id="searchQuery" placeholder="e.g. 500, /admin, login" class="flex-1 min-w-[200px] px-4 py-2 bg-slate-900 border border-slate-600 rounded-lg text-slate-200 placeholder-slate-500 focus:ring-2 focus:ring-cyan-500 focus:border-cyan-500" onkeydown="if(event.key==='Enter') searchLogs()" />
+          <button type="button" onclick="searchLogs()" class="px-5 py-2 bg-cyan-600 hover:bg-cyan-500 text-slate-900 font-semibold rounded-lg focus:ring-2 focus:ring-cyan-400 focus:ring-offset-2 focus:ring-offset-slate-800">Search</button>
+        </div>
+        <p id="searchCount" class="text-sm text-slate-500 mb-2"></p>
+        <div class="overflow-x-auto rounded-lg border border-slate-700">
+          <table class="w-full text-sm">
+            <thead class="bg-slate-900/50 text-slate-400 text-left">
+              <tr>
+                <th class="px-4 py-3 font-medium">Time</th>
+                <th class="px-4 py-3 font-medium">Request</th>
+                <th class="px-4 py-3 font-medium">Status</th>
+              </tr>
+            </thead>
+            <tbody id="searchResults" class="divide-y divide-slate-700">
+              <tr><td colspan="3" class="px-4 py-6 text-center text-slate-500">Enter a query and click Search</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+  </div>
+
+  <script>
+    const API_BASE = '';
+
+    let chartTraffic = null;
+
+    function el(id) { return document.getElementById(id); }
+
+    function escapeHtml(s) {
+      if (s == null) return '';
+      const div = document.createElement('div');
+      div.textContent = String(s);
+      return div.innerHTML;
+    }
+
+    function loadData() {
+      el('loadStatus').textContent = '';
+      el('loadSpinner').classList.remove('hidden');
+      el('btnLoad').disabled = true;
+
+      fetch(API_BASE + '/upload', { method: 'POST' })
+        .then((res) => res.json())
+        .then((data) => {
+          el('loadSpinner').classList.add('hidden');
+          el('btnLoad').disabled = false;
+          if (data.error) {
+            el('loadStatus').textContent = 'Error: ' + data.error;
+            return;
+          }
+          el('loadStatus').textContent = data.message || 'Loaded.';
+          fetchStats();
+        })
+        .catch((err) => {
+          el('loadSpinner').classList.add('hidden');
+          el('btnLoad').disabled = false;
+          el('loadStatus').textContent = 'Error: ' + err.message;
+        });
+    }
+
+    function fetchStats() {
+      fetch(API_BASE + '/stats')
+        .then((res) => res.json())
+        .then((data) => {
+          el('statTotal').textContent = typeof data.total === 'number' ? data.total.toLocaleString() : '—';
+          el('statErrorRate').textContent = typeof data.error_rate_pct === 'number' ? data.error_rate_pct + '%' : '—';
+          el('statUniqueIps').textContent = typeof data.unique_ips === 'number' ? data.unique_ips.toLocaleString() : '—';
+
+          const topIps = data.top_5_ips || [];
+          const tbodyIps = el('tableTopIps');
+          if (topIps.length === 0) {
+            tbodyIps.innerHTML = '<tr><td colspan="2" class="px-4 py-6 text-center text-slate-500">No data</td></tr>';
+          } else {
+            tbodyIps.innerHTML = topIps.map((r) => '<tr><td class="px-4 py-3 font-mono text-slate-200">' + escapeHtml(r.ip) + '</td><td class="px-4 py-3 text-right text-slate-300">' + r.count.toLocaleString() + '</td></tr>').join('');
+          }
+
+          const topEndpoints = data.top_5_endpoints || [];
+          const tbodyEp = el('tableTopEndpoints');
+          if (topEndpoints.length === 0) {
+            tbodyEp.innerHTML = '<tr><td colspan="2" class="px-4 py-6 text-center text-slate-500">No data</td></tr>';
+          } else {
+            tbodyEp.innerHTML = topEndpoints.map((r) => '<tr><td class="px-4 py-3 text-slate-200 break-all">' + escapeHtml(r.endpoint) + '</td><td class="px-4 py-3 text-right text-slate-300">' + r.count.toLocaleString() + '</td></tr>').join('');
+          }
+
+          const points = data.requests_over_time || [];
+          const labels = points.map((p) => {
+            const t = String(p.time);
+            return t.length >= 19 ? t.slice(0, 19).replace('T', ' ') : t;
+          });
+          const values = points.map((p) => p.count);
+
+          if (chartTraffic) {
+            chartTraffic.data.labels = labels;
+            chartTraffic.data.datasets[0].data = values;
+            chartTraffic.update();
+          } else {
+            const ctx = document.getElementById('chartTraffic').getContext('2d');
+            chartTraffic = new Chart(ctx, {
+              type: 'line',
+              data: {
+                labels: labels,
+                datasets: [{
+                  label: 'Requests',
+                  data: values,
+                  borderColor: 'rgb(34, 211, 238)',
+                  backgroundColor: 'rgba(34, 211, 238, 0.1)',
+                  fill: true,
+                  tension: 0.3,
+                }],
+              },
+              options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                  legend: { display: false },
+                },
+                scales: {
+                  x: {
+                    ticks: { color: '#94a3b8', maxRotation: 45, maxTicksLimit: 12 },
+                    grid: { color: 'rgba(51, 65, 85, 0.8)' },
+                  },
+                  y: {
+                    beginAtZero: true,
+                    ticks: { color: '#94a3b8' },
+                    grid: { color: 'rgba(51, 65, 85, 0.8)' },
+                  },
+                },
+              },
+            });
+          }
+        })
+        .catch(() => {
+          el('statTotal').textContent = '—';
+          el('statErrorRate').textContent = '—';
+          el('statUniqueIps').textContent = '—';
+        });
+    }
+
+    function runAI() {
+      el('analyzeResult').classList.add('hidden');
+      el('analyzeError').classList.add('hidden');
+      el('analyzeSpinner').classList.remove('hidden');
+      el('btnAnalyze').disabled = true;
+
+      fetch(API_BASE + '/analyze', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' })
+        .then((res) => res.json())
+        .then((data) => {
+          el('analyzeSpinner').classList.add('hidden');
+          el('btnAnalyze').disabled = false;
+
+          if (data.error) {
+            el('analyzeError').textContent = data.error;
+            el('analyzeError').classList.remove('hidden');
+            return;
+          }
+
+          const risk = String(data.risk_level || '—').toLowerCase();
+          el('aiRiskLevel').textContent = data.risk_level || '—';
+          const box = el('aiAlertBox');
+          if (risk.includes('high') || risk.includes('critical')) {
+            box.className = 'rounded-lg border-2 p-4 mb-4 border-red-500 bg-red-900/20 text-red-300';
+          } else if (risk.includes('medium')) {
+            box.className = 'rounded-lg border-2 p-4 mb-4 border-amber-500 bg-amber-900/20 text-amber-300';
+          } else {
+            box.className = 'rounded-lg border-2 p-4 mb-4 border-slate-600 bg-slate-700/50 text-slate-300';
+          }
+
+          const patterns = data.patterns_detected || [];
+          el('aiPatterns').innerHTML = patterns.length ? patterns.map((p) => '<li>' + escapeHtml(p) + '</li>').join('') : '<li class="text-slate-500">None</li>';
+          el('aiSummary').textContent = data.summary || '—';
+          el('analyzeResult').classList.remove('hidden');
+        })
+        .catch((err) => {
+          el('analyzeSpinner').classList.add('hidden');
+          el('btnAnalyze').disabled = false;
+          el('analyzeError').textContent = err.message || 'Request failed';
+          el('analyzeError').classList.remove('hidden');
+        });
+    }
+
+    function searchLogs() {
+      const q = el('searchQuery').value.trim();
+      if (!q) return;
+
+      fetch(API_BASE + '/search?q=' + encodeURIComponent(q))
+        .then((res) => res.json())
+        .then((data) => {
+          const results = data.results || [];
+          el('searchCount').textContent = 'Found ' + (data.count ?? results.length) + ' log(s).';
+
+          const tbody = el('searchResults');
+          if (results.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="3" class="px-4 py-6 text-center text-slate-500">No matches</td></tr>';
+          } else {
+            tbody.innerHTML = results.map((row) => {
+              const time = row.time != null ? escapeHtml(String(row.time)) : '';
+              const request = row.request != null ? escapeHtml(String(row.request)) : '';
+              const status = row.status != null ? escapeHtml(String(row.status)) : '';
+              return '<tr><td class="px-4 py-2 font-mono text-slate-400 text-xs whitespace-nowrap">' + time + '</td><td class="px-4 py-2 font-mono text-slate-200 text-xs break-all">' + request + '</td><td class="px-4 py-2 font-mono text-slate-300">' + status + '</td></tr>';
+            }).join('');
+          }
+        })
+        .catch((err) => {
+          el('searchCount').textContent = 'Error: ' + err.message;
+          el('searchResults').innerHTML = '<tr><td colspan="3" class="px-4 py-6 text-center text-red-400">Request failed</td></tr>';
+        });
+    }
+  </script>
+</body>
+</html>
